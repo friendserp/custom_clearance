@@ -1,0 +1,64 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-01-15 00:00:00",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "document_name",
+  "is_required",
+  "attachment",
+  "status",
+  "reason"
+ ],
+ "fields": [
+  {
+   "fieldname": "document_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Document Name",
+   "reqd": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "is_required",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Is Required"
+  },
+  {
+   "description": "Attach the document file here",
+   "fieldname": "attachment",
+   "fieldtype": "Attach",
+   "label": "Attachment"
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Status",
+   "options": "In Review\nAccepted\nDeclined"
+  },
+  {
+   "depends_on": "eval:doc.status == \"Declined\"",
+   "fieldname": "reason",
+   "fieldtype": "Small Text",
+   "label": "Decline Reason & Comment",
+   "mandatory_depends_on": "eval:doc.status == \"Declined\""
+  }
+ ],
+ "idx": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-02-05 14:31:22.762999",
+ "modified_by": "Administrator",
+ "module": "Custom Clearance",
+ "name": "Custom Clearance Document",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

@@ -1,0 +1,209 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "format:CC-{YYYY}-{####}",
+ "creation": "2026-01-15 00:00:00",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "customer",
+  "column_break_1",
+  "clearance_date",
+  "shipping_type",
+  "template_section",
+  "template",
+  "column_break_2",
+  "status",
+  "risk_result",
+  "documents_section",
+  "required_documents",
+  "payment_section",
+  "payments",
+  "section_break_guns",
+  "column_break_3",
+  "payment_amount",
+  "payment_date",
+  "column_break_zxyy",
+  "payment_status",
+  "sales_invoice",
+  "comments_section",
+  "column_break_4",
+  "risk_status_comment"
+ ],
+ "fields": [
+  {
+   "fieldname": "customer",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Customer",
+   "options": "Customer",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "Today",
+   "fieldname": "clearance_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Clearance Date",
+   "reqd": 1
+  },
+  {
+   "fieldname": "shipping_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Shipping Type",
+   "options": "Air\nSea",
+   "reqd": 1
+  },
+  {
+   "fieldname": "template_section",
+   "fieldtype": "Section Break",
+   "label": "Template"
+  },
+  {
+   "description": "Select a template to automatically fill required documents",
+   "fieldname": "template",
+   "fieldtype": "Link",
+   "label": "Template",
+   "options": "Custom Clearance Template"
+  },
+  {
+   "fieldname": "column_break_2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "allow_on_submit": 1,
+   "default": "Document Submitting",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Status",
+   "options": "Document Submitting\nIn Review\nRisk Analysis\nCleared"
+  },
+  {
+   "depends_on": "eval:doc.status == 'Risk Analysis'",
+   "fieldname": "risk_result",
+   "fieldtype": "Select",
+   "label": "Risk Result",
+   "options": "Green\nYellow\nRed"
+  },
+  {
+   "fieldname": "documents_section",
+   "fieldtype": "Section Break",
+   "label": "Required Documents"
+  },
+  {
+   "fieldname": "required_documents",
+   "fieldtype": "Table",
+   "label": "Required Documents",
+   "options": "Custom Clearance Document"
+  },
+  {
+   "fieldname": "payment_section",
+   "fieldtype": "Section Break",
+   "label": "Payment Information"
+  },
+  {
+   "depends_on": "eval:doc.status != \"Document Submitting\"",
+   "fieldname": "payments",
+   "fieldtype": "Table",
+   "label": "Payments",
+   "options": "Custom Clearance Payment"
+  },
+  {
+   "fieldname": "column_break_3",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "payment_date",
+   "fieldtype": "Date",
+   "label": "Payment Date"
+  },
+  {
+   "fieldname": "payment_status",
+   "fieldtype": "Select",
+   "label": "Payment Status",
+   "options": "Pending\nPaid\nPartially Paid"
+  },
+  {
+   "fieldname": "sales_invoice",
+   "fieldtype": "Link",
+   "label": "Sales Invoice",
+   "options": "Sales Invoice",
+   "read_only": 1
+  },
+  {
+   "fieldname": "comments_section",
+   "fieldtype": "Section Break",
+   "label": "Comments & Communication"
+  },
+  {
+   "fieldname": "column_break_4",
+   "fieldtype": "Column Break"
+  },
+  {
+   "depends_on": "eval:doc.risk_result in ['Yellow', 'Red']",
+   "description": "Comments for Yellow/Red Risk Result",
+   "fieldname": "risk_status_comment",
+   "fieldtype": "Small Text",
+   "label": "Risk Status Comment"
+  },
+  {
+   "fieldname": "payment_amount",
+   "fieldtype": "Float",
+   "label": "Payment Amount"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "section_break_guns",
+   "fieldtype": "Section Break",
+   "label": "Service Payment"
+  },
+  {
+   "fieldname": "column_break_zxyy",
+   "fieldtype": "Column Break"
+  }
+ ],
+ "idx": 1,
+ "links": [],
+ "modified": "2026-02-06 13:09:08.444300",
+ "modified_by": "Administrator",
+ "module": "Custom Clearance",
+ "name": "Custom Clearance",
+ "naming_rule": "Expression (old style)",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Customer",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

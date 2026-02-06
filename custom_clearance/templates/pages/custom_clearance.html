@@ -1,0 +1,1746 @@
+{% extends "templates/web.html" %}
+
+{% block breadcrumbs %}
+	{% include "templates/includes/breadcrumbs.html" %}
+{% endblock %}
+
+{% block title %}
+	{{ clearance.name }}ten
+{% endblock %}
+
+
+{% block page_content %}
+<div class="custom-clearance-detail-page">
+	<!-- Hero Header Section -->
+	<div class="hero-header">
+		<div class="clearance-status-container">
+			<div class="status-display">
+				<div class="status-step">
+					<div class="step-label">{{ _("Clearance Step") }}</div>
+					<div class="main-status">
+						{% set status_color = 'secondary' %}
+						{% set status_icon = 'file-text-o' %}
+						{% if clearance.status == 'Cleared' %}
+							{% set status_color = 'success' %}
+							{% set status_icon = 'check-circle' %}
+						{% elif clearance.status == 'Risk Analysis' %}
+							{% set status_color = 'primary' %}
+							{% set status_icon = 'exclamation-triangle' %}
+						{% elif clearance.status == 'In Review' %}
+							{% set status_color = 'info' %}
+							{% set status_icon = 'clock-o' %}
+						{% elif clearance.status == 'Document Submitting' %}
+							{% set status_color = 'secondary' %}
+							{% set status_icon = 'upload' %}
+						{% endif %}
+						<span class="status-badge badge-{{ status_color }} animated-badge">
+							<i class="fa fa-{{ status_icon }}"></i> {{ clearance.status }}
+						</span>
+					</div>
+				</div>
+				{% if clearance.status == "Risk Analysis" and clearance.risk_result %}
+				<div class="status-step">
+					<div class="step-label">{{ _("Risk Result") }}</div>
+					<div class="main-status">
+						<span class="risk-badge badge-{{ 'success' if clearance.risk_result == 'Green' else 'warning' if clearance.risk_result == 'Yellow' else 'danger' }} animated-badge">
+							<i class="fa fa-{{ 'shield' if clearance.risk_result == 'Green' else 'exclamation-triangle' if clearance.risk_result == 'Yellow' else 'times-circle' }}"></i> {{ clearance.risk_result }}
+						</span>
+					</div>
+				</div>
+				{% endif %}
+			</div>
+		</div>
+	</div>
+	
+
+	<div class="row">
+		<div class="col-md-12">
+			<div class="card">
+				<div class="card-header">
+					<h5>{{ _("Basic Information") }}</h5>
+				</div>
+				<div class="card-body">
+					<table class="table table-borderless">
+						<tr>
+							<td><strong>{{ _("Customer") }}:</strong></td>
+							<td>{{ customer_name or clearance.customer }}</td>
+						</tr>
+						<tr>
+							<td><strong>{{ _("Clearance Date") }}:</strong></td>
+							<td>{{ frappe.format(clearance.clearance_date, {"fieldtype": "Date"}) }}</td>
+						</tr>
+						<tr>
+							<td><strong>{{ _("Shipping Type") }}:</strong></td>
+							<td><span class="badge badge-info">{{ clearance.shipping_type }}</span></td>
+						</tr>
+						<tr>
+							<td><strong>{{ _("Template") }}:</strong></td>
+							<td>{{ clearance.template or "-" }}</td>
+						</tr>
+					</table>
+				</div>
+			</div>
+		</div>
+
+	</div>
+
+	<div class="row mt-4">
+		<div class="col-12">
+			<div class="card">
+				<div class="card-header">
+					<h5>{{ _("Required Documents") }}</h5>
+				</div>
+				<div class="card-body">
+					{% if required_documents %}
+					<div class="table-responsive">
+						<table class="table table-bordered">
+							<thead class="thead-light">
+								<tr>
+									<th>{{ _("Document Name") }}</th>
+									<th>{{ _("Required") }}</th>
+									<th>{{ _("Attachment") }}</th>
+									<th>{{ _("Status") }}</th>
+								</tr>
+							</thead>
+							<tbody>
+								{% for doc in required_documents %}
+								<tr data-row-name="{{ doc.row_name }}" data-document-name="{{ doc.document_name }}">
+									<td><strong>{{ doc.document_name }}</strong></td>
+									<td>
+										{% if doc.is_required %}
+											<span class="badge badge-danger">{{ _("Required") }}</span>
+										{% else %}
+											<span class="badge badge-secondary">{{ _("Optional") }}</span>
+										{% endif %}
+									</td>
+									<td>
+										{% if doc.attachment %}
+											<div class="attachment-actions">
+												<a href="{{ doc.attachment }}" target="_blank" class="btn btn-sm btn-success">
+													<i class="fa fa-eye"></i> {{ _("View") }}
+												</a>
+												{% if doc.status == "Declined" %}
+												<button type="button" class="btn btn-sm btn-warning btn-reupload" 
+													data-row-name="{{ doc.row_name }}"
+													data-doc-name="{{ doc.document_name }}"
+													data-reason="{{ doc.reason or ''|e }}"
+													onclick="showReuploadModal(this)">
+													<i class="fa fa-upload"></i> {{ _("Re-upload") }}
+												</button>
+												{% endif %}
+											</div>
+										{% else %}
+											<div class="file-upload-container">
+												<input type="file" 
+													class="form-control-file document-upload" 
+													data-row-name="{{ doc.row_name }}"
+													data-document-name="{{ doc.document_name }}"
+													accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif,.xlsx,.xls"
+													style="display: none;">
+												<button type="button" 
+													class="btn btn-sm btn-primary upload-btn"
+													data-row-name="{{ doc.row_name }}">
+													<i class="fa fa-cloud-upload"></i> {{ _("Upload") }}
+												</button>
+												<span class="upload-status text-muted" style="display: none; margin-left: 10px;">
+													<i class="fa fa-spinner fa-spin"></i> {{ _("Uploading...") }}
+												</span>
+											</div>
+										{% endif %}
+									</td>
+									<td>
+										<div class="status-cell-content">
+											{% if doc.attachment %}
+												{% if doc.status == 'Accepted' %}
+													<span class="badge badge-success animated-badge">
+														<i class="fa fa-check-circle"></i> {{ _("Accepted") }}
+													</span>
+												{% elif doc.status == 'Declined' %}
+													<span class="badge badge-danger animated-badge">
+														<i class="fa fa-times-circle"></i> {{ _("Declined") }}
+													</span>
+													{% if doc.reason %}
+													<small class="text-danger status-reason" data-toggle="tooltip" title="{{ doc.reason }}">
+														<i class="fa fa-info-circle"></i> {{ _("View reason") }}
+													</small>
+													{% endif %}
+												{% else %}
+													<span class="badge badge-info animated-badge">
+														<i class="fa fa-clock-o"></i> {{ _("In Review") }}
+													</span>
+												{% endif %}
+											{% elif doc.is_required %}
+												<span class="badge badge-danger animated-badge">
+													<i class="fa fa-exclamation-triangle"></i> {{ _("Missing") }}
+												</span>
+											{% else %}
+												<span class="badge badge-secondary animated-badge">
+													<i class="fa fa-hourglass-half"></i> {{ _("Pending") }}
+												</span>
+											{% endif %}
+										</div>
+									</td>
+								</tr>
+								{% endfor %}
+							</tbody>
+						</table>
+					</div>
+					{% else %}
+					<p class="text-muted">{{ _("No documents required.") }}</p>
+					{% endif %}
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<!-- Payment Table Section - Show below documents if payments exist -->
+	{% if payments and payments|length > 0 %}
+	<div class="row mt-4">
+		<div class="col-12">
+			<div class="card payment-table-card">
+				<div class="card-header payment-table-header">
+					<h5><i class="fa fa-money"></i> {{ _("Payment Information") }}</h5>
+				</div>
+				<div class="card-body payment-table-body">
+					<div class="table-responsive">
+						<table class="table table-bordered payment-table">
+							<thead>
+								<tr>
+									<th>{{ _("Type") }}</th>
+									<th>{{ _("Amount") }}</th>
+									<th>{{ _("Branch") }}</th>
+									<th>{{ _("Account Number") }}</th>
+									<th>{{ _("Custom ID Code") }}</th>
+									<th>{{ _("Payment Receipt") }}</th>
+								</tr>
+							</thead>
+							<tbody>
+								{% for payment in payments %}
+								<tr class="payment-row" data-payment-name="{{ payment.name }}">
+									<td>
+										<span class="badge badge-{{ 'info' if payment.payment_type == 'First Payment' else 'warning' }}">
+											{{ payment.payment_type }}
+										</span>
+									</td>
+									<td>
+										<strong class="payment-amount-text">
+											{{ frappe.format(payment.amount, {"fieldtype": "Currency"}) }}
+										</strong>
+									</td>
+									<td>
+										{% if payment.branch %}
+											<i class="fa fa-building"></i> {{ payment.branch }}
+										{% else %}
+											<span class="text-muted">-</span>
+										{% endif %}
+									</td>
+									<td>
+										{% if payment.account_number %}
+											<i class="fa fa-credit-card"></i> {{ payment.account_number }}
+										{% else %}
+											<span class="text-muted">-</span>
+										{% endif %}
+									</td>
+									<td>
+										{% if payment.custom_id_code %}
+											<code>{{ payment.custom_id_code }}</code>
+										{% else %}
+											<span class="text-muted">-</span>
+										{% endif %}
+									</td>
+									<td>
+										{% if payment.attachment %}
+											<div class="payment-receipt-actions">
+												<a href="{{ payment.attachment }}" target="_blank" class="btn btn-sm btn-success">
+													<i class="fa fa-eye"></i> {{ _("View Receipt") }}
+												</a>
+											</div>
+										{% else %}
+											<div class="payment-receipt-upload">
+												<input type="file" 
+													class="form-control-file payment-receipt-upload-input" 
+													data-payment-name="{{ payment.name }}"
+													accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif"
+													style="display: none;">
+												<button type="button" 
+													class="btn btn-sm btn-primary btn-upload-receipt"
+													data-payment-name="{{ payment.name }}">
+													<i class="fa fa-cloud-upload"></i> {{ _("Upload Receipt") }}
+												</button>
+												<span class="upload-receipt-status text-muted" style="display: none; margin-left: 10px;">
+													<i class="fa fa-spinner fa-spin"></i> {{ _("Uploading...") }}
+												</span>
+											</div>
+										{% endif %}
+									</td>
+								</tr>
+								{% endfor %}
+							</tbody>
+						</table>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+	{% endif %}
+
+	<!-- Comments Section -->
+	<div class="row mt-4">
+		<div class="col-12">
+			<div class="card comments-card">
+				<div class="card-header">
+					<h5><i class="fa fa-comments"></i> {{ _("Comments & Communication") }}</h5>
+				</div>
+				<div class="card-body">
+					<!-- Comments Display -->
+					<div class="comments-container" id="comments-container">
+						{% if comments %}
+							{% for comment in comments %}
+							<div class="telegram-message {% if comment.is_current_user %}current-user-message{% else %}other-user-message{% endif %}">
+								<div class="message-bubble {% if comment.is_current_user %}current-user-bubble{% else %}other-user-bubble{% endif %}">
+									<div class="message-header">
+										<span class="message-author">{{ comment.display_name }}</span>
+										<span class="message-time">
+											<i class="fa fa-clock-o"></i> {{ frappe.utils.format_datetime(comment.creation, "MMM dd, yyyy HH:mm") }}
+										</span>
+									</div>
+									<div class="message-content">
+										{{ comment.content | safe }}
+									</div>
+								</div>
+							</div>
+							{% endfor %}
+						{% else %}
+							<div class="no-comments">
+								<i class="fa fa-comment-o"></i>
+								<p>{{ _("No comments yet. Start the conversation!") }}</p>
+							</div>
+						{% endif %}
+					</div>
+					
+					<!-- Add Comment Form -->
+					<div class="comment-form-section">
+						<form id="add-comment-form" class="comment-form">
+							<div class="form-group">
+								<textarea 
+									id="comment-content" 
+									class="form-control comment-textarea" 
+									rows="3" 
+									placeholder="{{ _('Type your message here...') }}"
+									required></textarea>
+							</div>
+							{% if clearance.status in ['Yellow', 'Red'] %}
+							<div class="form-group">
+								<label>{{ _("Additional Payment Amount") }}</label>
+								<input type="number" class="form-control" id="comment-payment-amount" step="0.01" min="0" placeholder="{{ _('Enter amount if payment is needed') }}">
+							</div>
+							{% endif %}
+							<div class="form-actions">
+								<button type="submit" class="btn btn-primary btn-send-comment">
+									<i class="fa fa-paper-plane"></i> {{ _("Send") }}
+								</button>
+							</div>
+						</form>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<!-- Re-upload Modal -->
+	<div class="modal fade" id="reuploadModal" tabindex="-1" role="dialog">
+		<div class="modal-dialog" role="document">
+			<div class="modal-content">
+				<div class="modal-header">
+					<h5 class="modal-title">{{ _("Re-upload Document") }}</h5>
+					<button type="button" class="close" data-dismiss="modal">
+						<span>&times;</span>
+					</button>
+				</div>
+				<div class="modal-body">
+					<p><strong id="modal-doc-name"></strong></p>
+					<div id="modal-decline-reason" class="alert alert-warning" style="display: none;">
+						<strong>{{ _("Decline Reason:") }}</strong>
+						<p id="modal-reason-text"></p>
+					</div>
+					<div class="form-group">
+						<label>{{ _("Select new file to upload") }}</label>
+						<input type="file" class="form-control-file" id="reupload-file-input" 
+							accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif,.xlsx,.xls">
+					</div>
+				</div>
+				<div class="modal-footer">
+					<button type="button" class="btn btn-secondary" data-dismiss="modal">{{ _("Cancel") }}</button>
+					<button type="button" class="btn btn-primary" id="reupload-submit-btn">
+						<i class="fa fa-upload"></i> {{ _("Upload") }}
+					</button>
+				</div>
+			</div>
+		</div>
+	</div>
+</div>
+
+<style>
+.custom-clearance-detail-page {
+	padding: 0;
+	animation: fadeIn 0.5s ease-in;
+	min-height: 100vh;
+	background: #f8f9fa;
+}
+
+@keyframes fadeIn {
+	from { opacity: 0; transform: translateY(20px); }
+	to { opacity: 1; transform: translateY(0); }
+}
+
+/* Hero Header Section */
+.hero-header {
+	background: white;
+	padding: 15px 30px;
+	margin-bottom: 25px;
+	box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+	border-bottom: 3px solid #667eea;
+	position: relative;
+}
+
+.hero-header::before {
+	content: '';
+	position: absolute;
+	top: -50%;
+	right: -50%;
+	width: 200%;
+	height: 200%;
+	background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+	animation: shimmer 8s infinite;
+}
+
+.hero-content {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 20px;
+	position: relative;
+	z-index: 1;
+}
+
+.clearance-title-section {
+	flex: 1;
+	min-width: 300px;
+}
+
+.clearance-title {
+	font-size: 32px;
+	font-weight: 700;
+	color: #1f2937;
+	margin: 0 0 8px 0;
+	display: flex;
+	align-items: center;
+	gap: 12px;
+}
+
+.clearance-title i {
+	font-size: 28px;
+	opacity: 0.9;
+}
+
+.clearance-subtitle {
+	color: #6b7280;
+	font-size: 16px;
+	margin: 0;
+	font-weight: 400;
+}
+
+.clearance-status-container {
+	width: 100%;
+}
+
+.status-display {
+	display: flex;
+	align-items: center;
+	gap: 30px;
+	flex-wrap: wrap;
+}
+
+.status-step {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+.step-label {
+	font-size: 12px;
+	color: #6b7280;
+	font-weight: 500;
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+}
+
+.main-status {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 8px;
+}
+
+.status-section {
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	width: 100%;
+}
+
+.status-badge {
+	font-size: 12px;
+	padding: 4px 12px;
+	border-radius: 20px;
+	animation: pulse 2s infinite;
+	box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	font-weight: 600;
+}
+
+.risk-badge {
+	font-size: 12px;
+	padding: 4px 12px;
+	border-radius: 20px;
+	box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	font-weight: 600;
+}
+
+@keyframes shimmer {
+	0% { transform: rotate(0deg); }
+	100% { transform: rotate(360deg); }
+}
+
+@keyframes pulse {
+	0%, 100% { transform: scale(1); box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
+	50% { transform: scale(1.05); box-shadow: 0 6px 16px rgba(0,0,0,0.3); }
+}
+
+.card {
+	margin-bottom: 25px;
+	border: none;
+	border-radius: 16px;
+	box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+	transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+	animation: fadeInUp 0.6s ease-out;
+	animation-fill-mode: both;
+	background: white;
+	overflow: hidden;
+	position: relative;
+	margin-left: 30px;
+	margin-right: 30px;
+}
+
+.card:nth-child(1) { animation-delay: 0.1s; }
+.card:nth-child(2) { animation-delay: 0.2s; }
+.card:nth-child(3) { animation-delay: 0.3s; }
+
+@keyframes fadeInUp {
+	from { opacity: 0; transform: translateY(30px); }
+	to { opacity: 1; transform: translateY(0); }
+}
+
+.card:hover {
+	box-shadow: 0 8px 30px rgba(0,0,0,0.15);
+	transform: translateY(-4px);
+}
+
+.risk-analysis-card {
+	border-left: 4px solid #f59e0b;
+	box-shadow: 0 4px 20px rgba(245, 158, 11, 0.15);
+}
+
+.comments-card {
+	border-left: 4px solid #667eea;
+}
+
+.card-header {
+	background: #f8f9fa;
+	color: #1f2937;
+	padding: 18px 20px;
+	border-radius: 16px 16px 0 0;
+	border-bottom: 2px solid #e5e7eb;
+	position: relative;
+}
+
+.card-header h5 {
+	margin: 0;
+	font-size: 18px;
+	font-weight: 600;
+	color: #1f2937;
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.card-header h5 i {
+	color: #667eea;
+}
+
+.card-body {
+	padding: 25px;
+}
+
+.table-borderless td {
+	border: none;
+	padding: 14px 0;
+	vertical-align: middle;
+}
+
+/* Table cell alignment for document table */
+.table td {
+	vertical-align: middle;
+}
+
+.table td .attachment-actions,
+.table td .file-upload-container,
+.table td .status-cell-content {
+	vertical-align: middle;
+}
+
+.table-borderless td:first-child {
+	width: 40%;
+	color: #6c757d;
+	font-weight: 500;
+}
+
+.badge {
+	padding: 8px 14px;
+	font-size: 12px;
+	font-weight: 600;
+	border-radius: 20px;
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+	transition: all 0.3s ease;
+	white-space: nowrap;
+}
+
+.badge:hover {
+	transform: scale(1.05);
+	box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.animated-badge {
+	animation: badgeFadeIn 0.5s ease-out;
+}
+
+@keyframes badgeFadeIn {
+	from { opacity: 0; transform: scale(0.8); }
+	to { opacity: 1; transform: scale(1); }
+}
+
+.badge-info {
+	background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+	color: white;
+	border: 1px solid #1d4ed8;
+}
+
+.badge-success {
+	background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+	color: white;
+	border: 1px solid #047857;
+}
+
+.badge-warning {
+	background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+	color: white;
+	border: 1px solid #b45309;
+}
+
+.badge-danger {
+	background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+	color: white;
+	border: 1px solid #b91c1c;
+}
+
+.badge-secondary {
+	background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
+	color: white;
+	border: 1px solid #374151;
+}
+
+.badge-primary {
+	background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+	color: white;
+	border: 1px solid #5568d3;
+}
+
+.mt-4 {
+	margin-top: 2rem;
+}
+
+
+.upload-btn {
+	margin: 0;
+}
+
+.attachment-actions {
+	display: flex;
+	flex-direction: row;
+	align-items: center;
+	gap: 8px;
+	flex-wrap: wrap;
+}
+
+.file-upload-container {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	flex-wrap: wrap;
+}
+
+.status-cell-content {
+	display: flex;
+	flex-direction: row;
+	align-items: center;
+	gap: 8px;
+	flex-wrap: wrap;
+}
+
+.status-reason {
+	display: inline-block;
+	margin-left: 4px;
+}
+
+.btn-reupload {
+	background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+	color: white;
+	border: none;
+	box-shadow: 0 2px 6px rgba(245, 158, 11, 0.3);
+	transition: all 0.3s ease;
+}
+
+/* Ensure all buttons have equal height */
+.btn-sm {
+	height: 32px;
+	min-height: 32px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	padding: 0.25rem 0.75rem;
+}
+
+.document-status-select {
+	height: 32px;
+	min-height: 32px;
+	display: inline-block;
+	width: auto;
+	margin-right: 5px;
+}
+
+/* Payment Table Card */
+.payment-table-card {
+	border-left: 4px solid #667eea;
+	margin-bottom: 20px;
+}
+
+.payment-table-header {
+	background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+	color: white;
+	border-bottom: none;
+}
+
+.payment-table-header h5 {
+	color: white;
+	margin: 0;
+	font-size: 16px;
+	font-weight: 600;
+}
+
+.payment-table-body {
+	padding: 0;
+}
+
+.payment-table {
+	margin: 0;
+	border: none;
+}
+
+.payment-table thead {
+	background: #f8f9fa;
+}
+
+.payment-table thead th {
+	border-bottom: 2px solid #e5e7eb;
+	padding: 12px 15px;
+	font-size: 12px;
+	font-weight: 600;
+	color: #6b7280;
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+}
+
+.payment-table tbody td {
+	padding: 15px;
+	vertical-align: middle;
+	border-bottom: 1px solid #e5e7eb;
+}
+
+.payment-row:last-child td {
+	border-bottom: none;
+}
+
+.payment-amount-text {
+	font-size: 18px;
+	font-weight: 700;
+	color: #1f2937;
+}
+
+.payment-details-compact {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+.payment-detail-row {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	font-size: 13px;
+	color: #374151;
+}
+
+.payment-detail-row i {
+	color: #667eea;
+	font-size: 14px;
+	width: 16px;
+	text-align: center;
+}
+
+.payment-detail-row code {
+	background: #f3f4f6;
+	padding: 3px 6px;
+	border-radius: 4px;
+	font-family: 'Courier New', monospace;
+	font-size: 12px;
+	color: #1f2937;
+	font-weight: 600;
+}
+
+.no-payments-message {
+	text-align: center;
+	padding: 30px 20px;
+	color: #9ca3af;
+}
+
+.no-payments-message i {
+	font-size: 32px;
+	margin-bottom: 12px;
+	opacity: 0.5;
+	color: #667eea;
+}
+
+.no-payments-message p {
+	margin: 0;
+	font-size: 14px;
+}
+
+.btn-reupload:hover {
+	/* background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
+	transform: translateY(-2px); */
+	box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4);
+}
+
+/* Modal Styles */
+.modal-content {
+	border-radius: 16px;
+	border: none;
+	box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+}
+
+.modal-header {
+	background: #f8f9fa;
+	color: #1f2937;
+	border-bottom: 2px solid #e5e7eb;
+	padding: 20px;
+	border-radius: 16px 16px 0 0;
+}
+
+.modal-header .close {
+	color: #6b7280;
+	opacity: 0.7;
+	font-size: 28px;
+	transition: all 0.2s ease;
+}
+
+.modal-header .close:hover {
+	opacity: 1;
+	color: #1f2937;
+}
+
+.modal-body {
+	padding: 25px;
+}
+
+.modal-footer {
+	border-top: 1px solid #e5e7eb;
+	padding: 15px 25px;
+	background: #f8f9fa;
+	border-radius: 0 0 16px 16px;
+}
+
+/* Risk Analysis Section Styles */
+.info-row {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	padding: 16px 0;
+	border-bottom: 1px solid #e5e7eb;
+}
+
+.info-row:last-child {
+	border-bottom: none;
+}
+
+.info-label {
+	font-weight: 600;
+	color: #4b5563;
+	font-size: 14px;
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.info-label i {
+	color: #667eea;
+	font-size: 16px;
+}
+
+.info-value {
+	font-size: 16px;
+	color: #1f2937;
+	font-weight: 500;
+}
+
+.highlight-amount {
+	font-size: 20px;
+	font-weight: 700;
+	color: #f59e0b;
+	background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+	padding: 8px 16px;
+	border-radius: 8px;
+	display: inline-block;
+}
+
+/* Telegram-style Comment UI */
+.telegram-comment-section {
+	margin-top: 24px;
+	padding-top: 24px;
+	border-top: 2px solid #e5e7eb;
+}
+
+.comment-header {
+	font-weight: 600;
+	color: #4b5563;
+	font-size: 14px;
+	margin-bottom: 12px;
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.comment-header i {
+	color: #667eea;
+	font-size: 16px;
+}
+
+.telegram-message {
+	display: flex;
+	margin-bottom: 16px;
+	animation: messageSlideIn 0.4s ease-out;
+}
+
+.telegram-message.current-user-message {
+	justify-content: flex-start;
+}
+
+.telegram-message.other-user-message {
+	justify-content: flex-end;
+}
+
+.message-bubble {
+	border-radius: 18px;
+	padding: 12px 16px;
+	box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+	position: relative;
+	max-width: 75%;
+	min-width: 120px;
+	word-wrap: break-word;
+}
+
+.current-user-bubble {
+	background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%);
+	border-radius: 18px 18px 18px 4px;
+}
+
+.current-user-bubble::before {
+	content: '';
+	position: absolute;
+	left: -8px;
+	bottom: 0;
+	width: 0;
+	height: 0;
+	border-style: solid;
+	border-width: 0 8px 12px 0;
+	border-color: transparent #c7d2fe transparent transparent;
+}
+
+.other-user-bubble {
+	background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+	border-radius: 18px 18px 4px 18px;
+}
+
+.other-user-bubble::before {
+	content: '';
+	position: absolute;
+	right: -8px;
+	bottom: 0;
+	width: 0;
+	height: 0;
+	border-style: solid;
+	border-width: 0 0 12px 8px;
+	border-color: transparent transparent transparent #a7f3d0;
+}
+
+@keyframes messageSlideIn {
+	from {
+		opacity: 0;
+		transform: translateX(-20px) scale(0.95);
+	}
+	to {
+		opacity: 1;
+		transform: translateX(0) scale(1);
+	}
+}
+
+.message-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-bottom: 6px;
+	gap: 12px;
+}
+
+.message-author {
+	font-weight: 600;
+	font-size: 13px;
+	color: #1e293b;
+}
+
+.message-time {
+	font-size: 10px;
+	color: #64748b;
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	opacity: 0.7;
+}
+
+.message-time i {
+	font-size: 9px;
+}
+
+.message-content {
+	color: #1e293b;
+	/* font-size: 14px;
+	line-height: 1.5;
+	word-wrap: break-word;
+	white-space: pre-wrap;
+	min-height: auto; */
+}
+
+.comments-container {
+	max-height: 400px;
+	min-height: 200px;
+	overflow-y: auto;
+	padding: 20px;
+	margin-bottom: 20px;
+	background: #f8f9fa;
+	border-radius: 12px;
+	display: flex;
+	flex-direction: column;
+}
+
+.comments-container::-webkit-scrollbar {
+	width: 8px;
+}
+
+.comments-container::-webkit-scrollbar-track {
+	background: #f1f1f1;
+	border-radius: 10px;
+}
+
+.comments-container::-webkit-scrollbar-thumb {
+	background: #667eea;
+	border-radius: 10px;
+}
+
+.comments-container::-webkit-scrollbar-thumb:hover {
+	background: #764ba2;
+}
+
+.no-comments {
+	text-align: center;
+	padding: 40px 20px;
+	color: #9ca3af;
+}
+
+.no-comments i {
+	font-size: 48px;
+	margin-bottom: 16px;
+	opacity: 0.5;
+}
+
+.no-comments p {
+	margin: 0;
+	font-size: 14px;
+}
+
+.comment-form-section {
+	border-top: 2px solid #e5e7eb;
+	padding-top: 20px;
+	margin-top: 20px;
+}
+
+.comment-form {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+}
+
+.comment-textarea {
+	border-radius: 12px;
+	border: 2px solid #e5e7eb;
+	padding: 12px 16px;
+	font-size: 14px;
+	resize: vertical;
+	transition: all 0.3s ease;
+	font-family: inherit;
+}
+
+.comment-textarea:focus {
+	outline: none;
+	border-color: #667eea;
+	box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.form-actions {
+	display: flex;
+	justify-content: flex-end;
+}
+
+.btn-send-comment {
+	background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+	color: white;
+	border: none;
+	padding: 10px 24px;
+	border-radius: 12px;
+	font-weight: 600;
+	box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+	transition: all 0.3s ease;
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.btn-send-comment:hover {
+	transform: translateY(-2px);
+	box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.btn-send-comment:disabled {
+	opacity: 0.6;
+	cursor: not-allowed;
+	transform: none;
+}
+
+.status-change-dropdown {
+	display: inline-block;
+}
+
+
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+	const clearanceName = '{{ clearance.name }}';
+	let currentRowName = null;
+	
+	// Initialize tooltips
+	$('[data-toggle="tooltip"]').tooltip();
+	
+	// Re-upload modal function
+	function showReuploadModal(button) {
+		const rowName = button.getAttribute('data-row-name');
+		const docName = button.getAttribute('data-doc-name');
+		const reason = button.getAttribute('data-reason') || '';
+		
+		currentRowName = rowName;
+		document.getElementById('modal-doc-name').textContent = docName;
+		document.getElementById('reupload-file-input').value = '';
+		
+		if (reason && reason.trim()) {
+			document.getElementById('modal-reason-text').textContent = reason;
+			document.getElementById('modal-decline-reason').style.display = 'block';
+		} else {
+			document.getElementById('modal-decline-reason').style.display = 'none';
+		}
+		
+		$('#reuploadModal').modal('show');
+	}
+	
+	// Make showReuploadModal available globally
+	window.showReuploadModal = showReuploadModal;
+	
+	// Handle re-upload submit
+	const reuploadBtn = document.getElementById('reupload-submit-btn');
+	if (reuploadBtn) {
+		reuploadBtn.addEventListener('click', function() {
+			const fileInput = document.getElementById('reupload-file-input');
+			if (!fileInput.files || !fileInput.files[0]) {
+				frappe.show_alert({
+					message: '{{ _("Please select a file to upload") }}',
+					indicator: 'orange'
+				}, 3);
+				return;
+			}
+			
+			reuploadBtn.disabled = true;
+			reuploadBtn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> {{ _("Uploading...") }}';
+			
+			uploadDocument(fileInput.files[0], currentRowName, true);
+		});
+	}
+	
+	// Handle file upload button clicks
+	document.querySelectorAll('.upload-btn').forEach(function(btn) {
+		btn.addEventListener('click', function() {
+			const row = this.closest('tr');
+			const fileInput = row.querySelector('.document-upload');
+			fileInput.click();
+		});
+	});
+
+
+	function uploadDocument(file, rowName, isReupload) {
+		const row = document.querySelector(`tr[data-row-name="${rowName}"]`);
+		let uploadBtn, uploadStatus;
+		
+		if (isReupload) {
+			uploadBtn = row.querySelector('.btn-reupload');
+			if (uploadBtn) uploadBtn.style.display = 'none';
+		} else {
+			uploadBtn = row.querySelector('.upload-btn');
+			uploadStatus = row.querySelector('.upload-status');
+			if (uploadBtn) uploadBtn.style.display = 'none';
+			if (uploadStatus) {
+				uploadStatus.style.display = 'inline';
+				uploadStatus.innerHTML = '<i class="fa fa-spinner fa-spin"></i> {{ _("Uploading...") }}';
+			}
+		}
+		
+		// Validate file size (max 10MB)
+		const maxSize = 10 * 1024 * 1024;
+		if (file.size > maxSize) {
+			frappe.show_alert({
+				message: '{{ _("File size exceeds 10MB limit. Please choose a smaller file.") }}',
+				indicator: 'red'
+			}, 5);
+			resetUploadUI(rowName, isReupload);
+			return;
+		}
+		
+		// Validate file type
+		const allowedTypes = ['.pdf', '.doc', '.docx', '.jpg', '.jpeg', '.png', '.gif', '.xlsx', '.xls'];
+		const fileName = file.name.toLowerCase();
+		const isValidType = allowedTypes.some(type => fileName.endsWith(type));
+		
+		if (!isValidType) {
+			frappe.show_alert({
+				message: '{{ _("Invalid file type. Please upload PDF, DOC, DOCX, JPG, PNG, GIF, or XLSX files.") }}',
+				indicator: 'red'
+			}, 5);
+			resetUploadUI(rowName, isReupload);
+			return;
+		}
+		
+		const formData = new FormData();
+		formData.append('file', file);
+		formData.append('doctype', 'Custom Clearance');
+		formData.append('docname', clearanceName);
+		formData.append('folder', 'Home/Attachments');
+		formData.append('is_private', '0');
+		
+		const xhr = new XMLHttpRequest();
+		xhr.open('POST', '/api/method/upload_file', true);
+		xhr.setRequestHeader('X-Frappe-CSRF-Token', frappe.csrf_token);
+		
+		xhr.upload.addEventListener('progress', function(e) {
+			if (e.lengthComputable && uploadStatus) {
+				const percentComplete = (e.loaded / e.total) * 100;
+				uploadStatus.innerHTML = '<i class="fa fa-spinner fa-spin"></i> {{ _("Uploading...") }} ' + Math.round(percentComplete) + '%';
+			}
+		});
+		
+		xhr.onload = function() {
+			if (xhr.status === 200) {
+				try {
+					const response = JSON.parse(xhr.responseText);
+					if (response.message && response.message.file_url) {
+						frappe.call({
+							method: 'custom_clearance.custom_clearance.doctype.custom_clearance.custom_clearance.update_document_attachment',
+							args: {
+								clearance_name: clearanceName,
+								row_name: rowName,
+								file_url: response.message.file_url,
+								is_reupload: isReupload
+							},
+							callback: function(update_r) {
+								if (update_r.message && update_r.message.success) {
+									if (isReupload) {
+										$('#reuploadModal').modal('hide');
+										const reuploadSubmitBtn = document.getElementById('reupload-submit-btn');
+										if (reuploadSubmitBtn) {
+											reuploadSubmitBtn.disabled = false;
+											reuploadSubmitBtn.innerHTML = '<i class="fa fa-upload"></i> {{ _("Upload") }}';
+										}
+									}
+									frappe.show_alert({
+										message: isReupload ? '{{ _("Document re-uploaded successfully! It will be reviewed again.") }}' : '{{ _("Document uploaded successfully!") }}',
+										indicator: 'green'
+									}, 4);
+									setTimeout(() => window.location.reload(), 1500);
+								} else {
+									resetUploadUI(rowName, isReupload);
+									frappe.show_alert({
+										message: '{{ _("Error updating document") }}',
+										indicator: 'red'
+									}, 5);
+								}
+							},
+							error: function() {
+								resetUploadUI(rowName, isReupload);
+								frappe.show_alert({
+									message: '{{ _("Error updating document") }}',
+									indicator: 'red'
+								}, 5);
+							}
+						});
+					} else {
+						resetUploadUI(rowName, isReupload);
+						frappe.show_alert({
+							message: '{{ _("Error uploading file") }}',
+							indicator: 'red'
+						}, 5);
+					}
+				} catch (e) {
+					resetUploadUI(rowName, isReupload);
+					frappe.show_alert({
+						message: '{{ _("Error uploading file") }}',
+						indicator: 'red'
+					}, 5);
+				}
+			} else {
+				resetUploadUI(rowName, isReupload);
+				frappe.show_alert({
+					message: '{{ _("Error uploading file") }}',
+					indicator: 'red'
+				}, 5);
+			}
+		};
+		
+		xhr.onerror = function() {
+			resetUploadUI(rowName, isReupload);
+			frappe.show_alert({
+				message: '{{ _("Error uploading file") }}',
+				indicator: 'red'
+			}, 5);
+		};
+		
+		xhr.send(formData);
+	}
+	
+	function resetUploadUI(rowName, isReupload) {
+		const row = document.querySelector(`tr[data-row-name="${rowName}"]`);
+		if (isReupload) {
+			const reuploadBtn = row.querySelector('.btn-reupload');
+			if (reuploadBtn) reuploadBtn.style.display = 'block';
+			const reuploadSubmitBtn = document.getElementById('reupload-submit-btn');
+			if (reuploadSubmitBtn) {
+				reuploadSubmitBtn.disabled = false;
+				reuploadSubmitBtn.innerHTML = '<i class="fa fa-upload"></i> {{ _("Upload") }}';
+			}
+		} else {
+			const uploadBtn = row.querySelector('.upload-btn');
+			const uploadStatus = row.querySelector('.upload-status');
+			if (uploadBtn) uploadBtn.style.display = 'inline-block';
+			if (uploadStatus) uploadStatus.style.display = 'none';
+		}
+	}
+	
+	// Handle file selection
+	document.querySelectorAll('.document-upload').forEach(function(input) {
+		input.addEventListener('change', function() {
+			if (this.files && this.files.length > 0) {
+				const rowName = this.getAttribute('data-row-name');
+				uploadDocument(this.files[0], rowName, false);
+			}
+		});
+	});
+
+	// Handle clearance status change
+	{% if is_staff %}
+	const statusSelect = document.getElementById('clearance-status-select');
+	if (statusSelect) {
+		statusSelect.addEventListener('change', function() {
+			const newStatus = this.value;
+			const comment = prompt('{{ _("Enter comment for status change (optional)") }}:');
+			const paymentAmount = (newStatus === 'Yellow' || newStatus === 'Red') ? 
+				prompt('{{ _("Enter additional payment amount (required for Yellow/Red)") }}:') : null;
+			
+			if ((newStatus === 'Yellow' || newStatus === 'Red') && (!paymentAmount || parseFloat(paymentAmount) <= 0)) {
+				frappe.msgprint('{{ _("Additional payment amount is required for Yellow or Red status") }}');
+				this.value = '{{ clearance.status }}';
+				return;
+			}
+			
+			frappe.call({
+				method: 'custom_clearance.custom_clearance.doctype.custom_clearance.custom_clearance.update_clearance_status',
+				args: {
+					clearance_name: clearanceName,
+					status: newStatus,
+					comment: comment || '',
+					additional_payment_amount: paymentAmount || 0
+				},
+				callback: function(r) {
+					if (r.message && r.message.success) {
+						window.location.reload();
+					}
+				}
+			});
+		});
+	}
+	{% endif %}
+
+	// Handle document status change
+	{% if is_staff %}
+	document.querySelectorAll('.document-status-select').forEach(function(select) {
+		select.addEventListener('change', function() {
+			const rowName = this.getAttribute('data-row-name');
+			const newStatus = this.value;
+			let reason = null;
+			
+			if (newStatus === 'Declined') {
+				reason = prompt('{{ _("Enter decline reason (required)") }}:');
+				if (!reason) {
+					this.value = 'In Review';
+					return;
+				}
+			}
+			
+			frappe.call({
+				method: 'custom_clearance.custom_clearance.doctype.custom_clearance.custom_clearance.update_document_status',
+				args: {
+					clearance_name: clearanceName,
+					row_name: rowName,
+					status: newStatus,
+					reason: reason
+				},
+				callback: function(r) {
+					if (r.message && r.message.success) {
+						window.location.reload();
+					}
+				}
+			});
+		});
+	});
+	{% endif %}
+
+	// Handle payment receipt upload button clicks
+	console.log('Setting up payment receipt upload handlers...');
+	document.querySelectorAll('.btn-upload-receipt').forEach(function(btn) {
+		console.log('Found upload button:', btn);
+		btn.addEventListener('click', function() {
+			console.log('Upload button clicked');
+			const paymentName = this.getAttribute('data-payment-name');
+			console.log('Payment name:', paymentName);
+			const row = this.closest('tr');
+			const fileInput = row.querySelector('.payment-receipt-upload-input');
+			console.log('File input found:', fileInput);
+			if (fileInput) {
+				fileInput.click();
+			} else {
+				console.error('File input not found!');
+			}
+		});
+	});
+
+	// Handle payment receipt file selection
+	document.querySelectorAll('.payment-receipt-upload-input').forEach(function(input) {
+		console.log('Found file input:', input);
+		input.addEventListener('change', function() {
+			console.log('File selected:', this.files);
+			if (this.files && this.files.length > 0) {
+				const paymentName = this.getAttribute('data-payment-name');
+				console.log('Uploading receipt for payment:', paymentName, 'File:', this.files[0].name);
+				uploadPaymentReceipt(this.files[0], paymentName);
+			}
+		});
+	});
+
+	// Function to upload payment receipt
+	function uploadPaymentReceipt(file, paymentName) {
+		console.log('=== Upload Payment Receipt ===');
+		console.log('File:', file.name, 'Size:', file.size, 'Type:', file.type);
+		console.log('Payment name:', paymentName);
+		
+		const row = document.querySelector(`tr[data-payment-name="${paymentName}"]`);
+		if (!row) {
+			console.error('Payment row not found for:', paymentName);
+			frappe.show_alert({
+				message: '{{ _("Error: Payment row not found") }}',
+				indicator: 'red'
+			}, 5);
+			return;
+		}
+		
+		const uploadBtn = row.querySelector('.btn-upload-receipt');
+		const uploadStatus = row.querySelector('.upload-receipt-status');
+		
+		if (uploadBtn) uploadBtn.style.display = 'none';
+		if (uploadStatus) {
+			uploadStatus.style.display = 'inline';
+			uploadStatus.innerHTML = '<i class="fa fa-spinner fa-spin"></i> {{ _("Uploading...") }}';
+		}
+		
+		// Validate file size (max 10MB)
+		const maxSize = 10 * 1024 * 1024;
+		if (file.size > maxSize) {
+			console.error('File too large:', file.size);
+			frappe.show_alert({
+				message: '{{ _("File size exceeds 10MB limit. Please choose a smaller file.") }}',
+				indicator: 'red'
+			}, 5);
+			resetReceiptUploadUI(paymentName);
+			return;
+		}
+		
+		// Validate file type
+		const allowedTypes = ['.pdf', '.doc', '.docx', '.jpg', '.jpeg', '.png', '.gif'];
+		const fileName = file.name.toLowerCase();
+		const isValidType = allowedTypes.some(type => fileName.endsWith(type));
+		
+		if (!isValidType) {
+			console.error('Invalid file type:', fileName);
+			frappe.show_alert({
+				message: '{{ _("Invalid file type. Please upload PDF, DOC, DOCX, JPG, PNG, or GIF files.") }}',
+				indicator: 'red'
+			}, 5);
+			resetReceiptUploadUI(paymentName);
+			return;
+		}
+		
+		console.log('Preparing FormData...');
+		const formData = new FormData();
+		formData.append('file', file);
+		formData.append('doctype', 'Custom Clearance Payment');
+		formData.append('docname', paymentName);
+		formData.append('fieldname', 'attachment');
+		formData.append('folder', 'Home/Attachments');
+		formData.append('is_private', '0');
+		
+		console.log('Sending upload request...');
+		const xhr = new XMLHttpRequest();
+		xhr.open('POST', '/api/method/upload_file', true);
+		xhr.setRequestHeader('X-Frappe-CSRF-Token', frappe.csrf_token);
+		
+		xhr.upload.addEventListener('progress', function(e) {
+			if (e.lengthComputable && uploadStatus) {
+				const percentComplete = (e.loaded / e.total) * 100;
+				uploadStatus.innerHTML = '<i class="fa fa-spinner fa-spin"></i> {{ _("Uploading...") }} ' + Math.round(percentComplete) + '%';
+			}
+		});
+		
+		xhr.onload = function() {
+			console.log('Upload response status:', xhr.status);
+			console.log('Upload response:', xhr.responseText);
+			if (xhr.status === 200) {
+				try {
+					const response = JSON.parse(xhr.responseText);
+					console.log('Parsed response:', response);
+					if (response.message && response.message.file_url) {
+						console.log('File uploaded successfully, URL:', response.message.file_url);
+						// Update the payment row with the attachment
+						frappe.call({
+							method: 'custom_clearance.custom_clearance.doctype.custom_clearance.custom_clearance.update_payment_receipt',
+							args: {
+								clearance_name: clearanceName,
+								payment_row_name: paymentName,
+								file_url: response.message.file_url
+							},
+							callback: function(update_r) {
+								console.log('Update payment receipt response:', update_r);
+								if (update_r.message && update_r.message.success) {
+									console.log('SUCCESS: Payment receipt updated');
+									frappe.show_alert({
+										message: '{{ _("Payment receipt uploaded successfully!") }}',
+										indicator: 'green'
+									}, 4);
+									setTimeout(() => window.location.reload(), 1500);
+								} else {
+									console.error('ERROR: Failed to update payment receipt:', update_r.message);
+									resetReceiptUploadUI(paymentName);
+									frappe.show_alert({
+										message: '{{ _("Error updating payment receipt") }}',
+										indicator: 'red'
+									}, 5);
+								}
+							},
+							error: function(err) {
+								console.error('ERROR: API call failed:', err);
+								resetReceiptUploadUI(paymentName);
+								frappe.show_alert({
+									message: '{{ _("Error updating payment receipt") }}',
+									indicator: 'red'
+								}, 5);
+							}
+						});
+					} else {
+						console.error('ERROR: No file_url in response');
+						resetReceiptUploadUI(paymentName);
+						frappe.show_alert({
+							message: '{{ _("Error uploading file") }}',
+							indicator: 'red'
+						}, 5);
+					}
+				} catch (e) {
+					console.error('ERROR: Failed to parse response:', e);
+					resetReceiptUploadUI(paymentName);
+					frappe.show_alert({
+						message: '{{ _("Error uploading file") }}',
+						indicator: 'red'
+					}, 5);
+				}
+			} else {
+				console.error('ERROR: Upload failed with status:', xhr.status);
+				resetReceiptUploadUI(paymentName);
+				frappe.show_alert({
+					message: '{{ _("Error uploading file") }}',
+					indicator: 'red'
+				}, 5);
+			}
+		};
+		
+		xhr.onerror = function() {
+			console.error('ERROR: Network error during upload');
+			resetReceiptUploadUI(paymentName);
+			frappe.show_alert({
+				message: '{{ _("Error uploading file") }}',
+				indicator: 'red'
+			}, 5);
+		};
+		
+		xhr.send(formData);
+	}
+	
+	function resetReceiptUploadUI(paymentName) {
+		console.log('Resetting upload UI for payment:', paymentName);
+		const row = document.querySelector(`tr[data-payment-name="${paymentName}"]`);
+		if (row) {
+			const uploadBtn = row.querySelector('.btn-upload-receipt');
+			const uploadStatus = row.querySelector('.upload-receipt-status');
+			if (uploadBtn) uploadBtn.style.display = 'inline-block';
+			if (uploadStatus) uploadStatus.style.display = 'none';
+		}
+	}
+
+	// Handle comment form submission (no attachments)
+	const commentForm = document.getElementById('add-comment-form');
+	if (commentForm) {
+		commentForm.addEventListener('submit', function(e) {
+			e.preventDefault();
+			
+			const content = document.getElementById('comment-content').value.trim();
+			const paymentAmount = document.getElementById('comment-payment-amount') ? 
+				document.getElementById('comment-payment-amount').value : null;
+			const submitBtn = commentForm.querySelector('.btn-send-comment');
+			
+			if (!content) {
+				frappe.show_alert({
+					message: '{{ _("Please enter a comment") }}',
+					indicator: 'orange'
+				}, 3);
+				return;
+			}
+			
+			// Disable button during submission
+			submitBtn.disabled = true;
+			submitBtn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> {{ _("Sending...") }}';
+			
+			// Add comment (no attachments)
+			frappe.call({
+				method: 'custom_clearance.custom_clearance.doctype.custom_clearance.custom_clearance.add_comment',
+				args: {
+					clearance_name: clearanceName,
+					content: content,
+					payment_amount: paymentAmount || null,
+					attachment_url: null
+				},
+				callback: function(r) {
+					if (r.message && r.message.success) {
+						// Clear textarea
+						document.getElementById('comment-content').value = '';
+						if (document.getElementById('comment-payment-amount')) {
+							document.getElementById('comment-payment-amount').value = '';
+						}
+						
+						// Reload page to show new comment
+						frappe.show_alert({
+							message: '{{ _("Comment added successfully!") }}',
+							indicator: 'green'
+						}, 3);
+						
+						setTimeout(() => {
+							window.location.reload();
+						}, 1000);
+					} else {
+						submitBtn.disabled = false;
+						submitBtn.innerHTML = '<i class="fa fa-paper-plane"></i> {{ _("Send") }}';
+						frappe.show_alert({
+							message: '{{ _("Error adding comment. Please try again.") }}',
+							indicator: 'red'
+						}, 5);
+					}
+				},
+				error: function() {
+					submitBtn.disabled = false;
+					submitBtn.innerHTML = '<i class="fa fa-paper-plane"></i> {{ _("Send") }}';
+					frappe.show_alert({
+						message: '{{ _("Error adding comment. Please try again.") }}',
+						indicator: 'red'
+					}, 5);
+				}
+			});
+		});
+		
+		// Auto-resize textarea
+		const textarea = document.getElementById('comment-content');
+		if (textarea) {
+			textarea.addEventListener('input', function() {
+				this.style.height = 'auto';
+				this.style.height = (this.scrollHeight) + 'px';
+			});
+		}
+	}
+});
+</script>
+{% endblock %}

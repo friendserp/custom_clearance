@@ -82,11 +82,25 @@ app_license = "mit"
 # 	"filters": "custom_clearance.utils.jinja_filters"
 # }
 
+# Website Route Rules
+# -------------------
+website_route_rules = [
+	{"from_route": "/custom_clearances", "to_route": "custom_clearances"},
+	{
+		"from_route": "/custom_clearances/<path:name>",
+		"to_route": "custom_clearance",
+		"defaults": {
+			"doctype": "Custom Clearance",
+			"parents": [{"label": "Custom Clearances", "route": "custom_clearances"}],
+		},
+	},
+]
+
 # Installation
 # ------------
 
 # before_install = "custom_clearance.install.before_install"
-# after_install = "custom_clearance.install.after_install"
+after_install = "custom_clearance.custom_clearance.setup.create_templates.after_install"
 
 # Uninstallation
 # ------------
@@ -132,13 +146,12 @@ app_license = "mit"
 # ---------------
 # Hook on document methods and events
 
-# doc_events = {
-# 	"*": {
-# 		"on_update": "method",
-# 		"on_cancel": "method",
-# 		"on_trash": "method"
-# 	}
-# }
+doc_events = {
+	"Sales Invoice": {
+		"on_update": "custom_clearance.custom_clearance.doctype.custom_clearance.custom_clearance.update_clearance_payment_status",
+		"on_cancel": "custom_clearance.custom_clearance.doctype.custom_clearance.custom_clearance.handle_sales_invoice_cancel"
+	}
+}
 
 # Scheduled Tasks
 # ---------------
